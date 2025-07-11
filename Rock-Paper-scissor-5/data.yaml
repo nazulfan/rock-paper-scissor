@@ -1,0 +1,14 @@
+names:
+- paper
+- rock
+- scirssors
+nc: 3
+roboflow:
+  license: CC BY 4.0
+  project: rock-paper-scissor-xyglz
+  url: https://universe.roboflow.com/g-hisd7/rock-paper-scissor-xyglz/dataset/5
+  version: 5
+  workspace: g-hisd7
+test: ../test/images
+train: ../train/images
+val: ../valid/images
