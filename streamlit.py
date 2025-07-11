@@ -5,7 +5,8 @@ from ultralytics import YOLO
 from PIL import Image
 import os
 import cv2
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
+# Impor VideoProcessorBase, bukan VideoTransformerBase
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration # <-- DIUBAH
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="Deteksi Batu Gunting Kertas", page_icon="✂️", layout="wide")
@@ -24,15 +25,12 @@ def load_yolo_model(model_path):
     return model
 
 # --- PATH MODEL ---
-# Pastikan file model 'best.pt' berada di lokasi yang benar
 model_path = 'runs/detect/train/weights/best.pt'
 
-# Periksa keberadaan model sebelum memuatnya
 if not os.path.exists(model_path):
     st.error(f"File model tidak ditemukan di '{model_path}'. Pastikan Anda sudah melatih model dan path-nya sudah benar.")
-    st.stop() # Hentikan eksekusi jika model tidak ada
+    st.stop() 
 
-# Muat model yang telah dilatih
 try:
     model = load_yolo_model(model_path)
 except Exception as e:
@@ -40,18 +38,17 @@ except Exception as e:
     st.stop()
 
 # --- RTC CONFIGURATION UNTUK DEPLOYMENT ---
-# Diperlukan agar webcam berfungsi saat di-deploy di Streamlit Community Cloud
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
 )
 
-
-# --- KELAS UNTUK TRANSFORMASI VIDEO WEBCAM ---
-class VideoTransformer(VideoTransformerBase):
+# --- KELAS UNTUK PROSESOR VIDEO WEBCAM ---
+# Ganti nama kelas dan basisnya
+class VideoProcessor(VideoProcessorBase): # <-- DIUBAH
     def __init__(self):
         self.model = model
 
-    def transform(self, frame):
+    def recv(self, frame):
         # Konversi frame menjadi format yang bisa diproses (BGR)
         img = frame.to_ndarray(format="bgr24")
 
@@ -60,8 +57,9 @@ class VideoTransformer(VideoTransformerBase):
 
         # Gambar kotak deteksi pada frame
         annotated_frame = results[0].plot()
-
-        return annotated_frame
+        
+        # Kembalikan frame yang sudah dianotasi
+        return frame.from_ndarray(annotated_frame, format="bgr24")
 
 
 # --- UI TABS ---
@@ -80,12 +78,10 @@ with tab1:
 
         with col2:
             with st.spinner("Sedang memproses..."):
-                # Lakukan prediksi
                 results = model.predict(image, verbose=False)
                 annotated_image_np = results[0].plot()
                 annotated_image_rgb = cv2.cvtColor(annotated_image_np, cv2.COLOR_BGR2RGB)
                 st.image(annotated_image_rgb, caption="Hasil Deteksi", use_column_width=True)
-
 
 # --- TAB UNTUK WEBCAM ---
 with tab2:
@@ -94,7 +90,8 @@ with tab2:
 
     webrtc_streamer(
         key="webcam",
-        video_transformer_factory=VideoTransformer,
+        # Gunakan video_processor_factory
+        video_processor_factory=VideoProcessor, # <-- DIUBAH
         rtc_configuration=RTC_CONFIGURATION,
         media_stream_constraints={"video": True, "audio": False}
     )
